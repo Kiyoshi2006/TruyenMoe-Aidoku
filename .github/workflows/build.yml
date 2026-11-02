@@ -1,0 +1,61 @@
+name: Build & Release TruyenMoe.aix
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Install Aidoku CLI
+        run: cargo install --git https://github.com/Aidoku/aidoku-rs aidoku-cli --locked
+        env:
+          CARGO_NET_GIT_FETCH_WITH_CLI: true
+
+      - name: Build
+        run: cargo build --release --target wasm32-unknown-unknown
+
+      - name: Package
+        run: aidoku package
+
+      - name: Find and rename .aix
+        run: |
+          AIX=$(find . -name "*.aix" | head -1)
+          echo "Found: $AIX"
+          cp "$AIX" TruyenMoe.aix
+          ls -lh TruyenMoe.aix
+
+      - name: Verify
+        run: aidoku verify TruyenMoe.aix
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TruyenMoe.aix
+          path: TruyenMoe.aix
+
+      - name: Release
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'latest' }}
+          name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'Latest Build' }}
+          prerelease: ${{ !startsWith(github.ref, 'refs/tags/') }}
+          files: TruyenMoe.aix

@@ -1,0 +1,22 @@
+{
+  "info": {
+    "id": "vi.truyenmoe",
+    "name": "TruyenMoe",
+    "version": 1,
+    "url": "https://truyen.moe",
+    "contentRating": 1,
+    "languages": [
+      "vi"
+    ]
+  },
+  "listings": [
+    {
+      "id": "latest",
+      "name": "Mới cập nhật"
+    },
+    {
+      "id": "popular",
+      "name": "Phổ biến"
+    }
+  ]
+}
