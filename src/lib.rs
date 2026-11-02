@@ -3,7 +3,7 @@
 #![no_std]
 
 use aidoku::{
-    alloc::{String, Vec, format},
+    alloc::{String, Vec, format, string::ToString},
     imports::net::Request,
     prelude::*,
     Chapter, Listing, ListingProvider, Manga, MangaPageResult, MangaStatus,
