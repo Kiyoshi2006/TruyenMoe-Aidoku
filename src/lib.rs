@@ -91,7 +91,10 @@ fn array_names(v: &Value, key: &str) -> Option<Vec<String>> {
 // ─── Pagination ───────────────────────────────────────────────────────────────
 fn total_pages(v: &Value) -> i64 {
     // Try several shapes the API uses
-    if let Some(meta) = v.get("meta").or_else(|| v.get("pagination")) {
+    let meta = v.get("meta")
+        .and_then(|m| m.get("pagination").or(Some(m)))
+        .or_else(|| v.get("pagination"));
+    if let Some(meta) = meta {
         if let Some(n) = meta.get("totalPages").and_then(Value::as_i64) { return n; }
         if let Some(n) = meta.get("lastPage").and_then(Value::as_i64) { return n; }
         if let Some(b) = meta.get("hasNextPage").and_then(Value::as_bool) {
@@ -234,9 +237,9 @@ fn chapter_from(v: &Value) -> Chapter {
 
 fn parse_chapters(v: &Value) -> Vec<Chapter> {
     // Chapters can be in v["data"], v["chapters"], or directly as array
-    let arr = v.get("chapters").and_then(Value::as_array)
-        .or_else(|| v.get("data").and_then(Value::as_array))
-        .or_else(|| v.as_array());
+    let d = v.get("data").unwrap_or(v);
+    let arr = d.get("chapters").and_then(Value::as_array)
+        .or_else(|| d.as_array());
     arr.map(|a| a.iter().map(chapter_from).collect()).unwrap_or_default()
 }
 
@@ -341,7 +344,11 @@ impl Source for TruyenMoe {
             if !pages.is_empty() { return Ok(pages); }
         }
 
-        bail!("Chương {} không có ảnh (chapter bị khóa hoặc API thay đổi)", chapter.key)
+        let access = d.get("chapter").map(|c| str_of(c, "access")).unwrap_or("");
+        if access.is_empty() || access == "public" {
+            bail!("Chương {} là chương mã hóa IMGX (không có ảnh công khai). Hãy đọc trên truyen.moe.", chapter.key)
+        }
+        bail!("Chương {} bị khóa ({})", chapter.key, access)
     }
 }
 
@@ -351,7 +358,7 @@ impl ListingProvider for TruyenMoe {
         let page = page.max(1);
         let path = match listing.id.as_str() {
             "popular" => format!(
-                "/v2/manga/top?page={}&limit={}&sort_by=views&time=all_time&include=genres",
+                "/v2/manga?page={}&limit={}&sort=popular&hasChapters=0&include=genres",
                 page, PAGE_SIZE
             ),
             _ => format!(
